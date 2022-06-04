@@ -21,19 +21,20 @@ const getUserFromToken = async (token, db) =>{
   return (await db.collection("Users").findOne({_id: ObjectId(tokenData.id)}));
 }
 
-// A schema is a collection of type definitions (hence "typeDefs")
-// that together define the "shape" of queries that are executed against
-// your data.
 const typeDefs = gql`
   type Query {
-    myTaskLists: [TaskList!]!
+    myPlayLists: [PlayList]
+    searchSongByName(name: String!): [Song]
   }
 
   type Mutation {
     signUp(input: signUpInput!): AuthUser!
     signIn(input: signInInput!): AuthUser!
-    createTaskList(title: String!): TaskList!
+    createPlayList(name: String!): PlayList!
+    addSong(input: songInput!): Song!
+    
   }
+# createSong(input: songInput!): [Song!]!: Should add song manually to db. Not through Graphql
 
   input signInInput {
     email: String!
@@ -45,6 +46,13 @@ const typeDefs = gql`
     password: String!
     name: String!
     avatar: String
+  }
+
+  input songInput {
+    name: String!
+    author: String!
+    URI: String!
+    imageURL: String
   }
 
   type AuthUser {
@@ -59,44 +67,37 @@ const typeDefs = gql`
     avatar: String
   }
 
-  type TaskList {
+# Music App DB schema
+# Should add type: SongCategory
+  type Song {
     id: ID!
-    createdAt: String!
-    title: String!
-    progress: Float!
-    users: [User!]!
-    todos: [ToDo!]!
+    name: String!
+    author: String!
+    URI: String!
+    imageURL: String!
   }
 
-  type ToDo {
+  type User {
     id: ID!
-    content: String!
-    isCompleted: Boolean!
-    taskList: TaskList!
+    name: String!
+    email: String!
+    avatar: String
   }
 
   type PlayList {
     id: ID!
     author: User!
     name: String!
-  }
-
-  type Song {
-    id: ID!
-    name: String!
-    URI: String!
+    songArr: [Song]
+    imageURL: String
+    description: String
   }
   
-
 `;
-
-// Resolvers define the technique for fetching the types defined in the
-// schema. This resolver retrieves books from the "books" array above.
-// Write logic to signup and signin here in resolvers
 
 const resolvers = {
   Query: {
-    myTaskLists: () => []
+    searchSongByName: async (root, {name}, {db}) =>  await db.collection("Songs").find({name: name}).toArray() //Can add authorization by token
   },
   Mutation: {
     signUp: async (root, {input}, {db}) => {
@@ -119,6 +120,7 @@ const resolvers = {
     signIn: async (root, {input}, {db}) => {
       userEmail = input.email;
       user = await db.collection("Users").findOne({email: userEmail});
+      //Check if email is already existed
       if (!user) {
         throw new Error("Invalid email or password!");
       }
@@ -131,21 +133,32 @@ const resolvers = {
         user,
       });
     },
-    createTaskList: async (root, {title}, {db, user}) => {
-      if(!user){
-        throw new Error("Please sign in!");
+
+    addSong: async (root, {input}, {db}) => {
+      const newSong = {
+        name: input.name,
+        author: input.author,
+        imageURL: input.imageURL,
+        URI: input.URI
       }
-    },
+      await db.collection("Songs").insertOne(newSong);
+      // console.log(newSong);
+      return({
+        ...newSong
+      })
+    }
+    
   },
-  //second way to fix _id->id
-  User: {
-    id: ({_id, id}) =>{ //First obj in parameter root obj
+  //Custom resolver here
+  Song: {
+    id: ({_id, id}) => {
       objId = JSON.stringify(_id);
-      objId = objId.slice(1); //Bo dau " o dau chuoi
-      objId = objId.slice(0, 24);//Bo dau " o cuoi chuoi
-      return (objId || id); // Return objId if _id is not NULL and return id if _id is NULL
+      objId = objId.slice(1); //Remove quote at the beginning of string
+      objId = objId.slice(0, 24);//Remove quote at the end of string
+      return (objId || id);
     }
   }
+
 };
 
 
@@ -172,8 +185,8 @@ start = async () => {
     const server = new ApolloServer({ typeDefs, resolvers, 
       context: async ({req}) => {
       const user = await getUserFromToken(req.headers.authorization, db)
-      console.log(user);
-      console.log(req.headers.authorization);
+      // console.log(user);
+      // console.log(req.headers.authorization);
       return {
         db,
         user
@@ -181,7 +194,7 @@ start = async () => {
     }});
 
     // The `listen` method launches a web server.
-    server.listen({ port: process.env.PORT || 4000 }).then(({ url }) => {
+    server.listen({ port: process.env.PORT || 5000 }).then(({ url }) => {
       console.log(`🚀  Server ready at ${url}`);
     });
     // const res = await collection.findOne({"tuoi": 22});
