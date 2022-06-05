@@ -26,6 +26,7 @@ const typeDefs = gql`
     myPlayLists: [PlayList]
     searchSongByName(name: String!): [Song]
     searchSongByTitle(title: String!): [Song]
+    myLikedSongs: [Song]
   }
 
   type Mutation {
@@ -33,6 +34,7 @@ const typeDefs = gql`
     signIn(input: signInInput!): AuthUser!
     createPlayList(input: createPlayListInput!): PlayList!
     addSongToPlayList(songId: String!, playListId: String!): PlayList! #addSongToPlayList ~ update play list
+    likeASong (songId: String!): User!
     addSong(input: addSongInput!): Song!
     
   }
@@ -72,11 +74,10 @@ const typeDefs = gql`
     id: ID!
     name: String!
     email: String!
+    likedSongs: [Song]
     avatar: String
   }
 
-# Music App DB schema
-# Should add type: SongCategory
   type Song {
     id: ID!
     name: String!
@@ -84,13 +85,6 @@ const typeDefs = gql`
     URI: String!
     imageURL: String!
     title: String!
-  }
-
-  type User {
-    id: ID!
-    name: String!
-    email: String!
-    avatar: String
   }
 
   type PlayList {
@@ -112,7 +106,12 @@ const resolvers = {
       const playListArr = await db.collection("PlayLists").find({"author._id": user._id}).toArray();
       return playListArr;
     },
-    searchSongByTitle: async (root, {title}, {db, user}) => await db.collection("Songs").find({title: title}).toArray()
+    searchSongByTitle: async (root, {title}, {db, user}) => await db.collection("Songs").find({title: title}).toArray(),
+    myLikedSongs: async (root, data, {db, user}) => {
+      if(!user) throw new Error("Please sign in to see your liked song!")
+      return (user.likedSongs)
+
+    }
     
   },
   Mutation: {
@@ -207,6 +206,35 @@ const resolvers = {
       await db.collection("PlayLists").updateOne({_id: ObjectId(playListId)}, {$set: {songArr: [...newSongArr]}})
       updatedPlayList_2 = await db.collection("PlayLists").findOne({_id: ObjectId(playListId)})
       return({...updatedPlayList_2})
+    },
+    likeASong: async (root, {songId}, {db, user}) => {
+      if(!user) throw new Error("Please sign in to like this song!")
+      likedSong = await db.collection("Songs").findOne({_id: ObjectId(songId)})
+      //Save last liked song array of user 
+      lastLikedSongArr = user.likedSongs;
+      //Check if user liked any song yet
+      if (typeof(lastLikedSongArr) == 'undefined'){
+        console.log("11111111");
+
+        console.log({...user, likedSongs: likedSong});
+        await db.collection("Users").updateOne({_id: user._id}, {$set:{likedSongs:[likedSong]}})
+        return({...user, likedSongs: [likedSong]})
+      }
+      //Check if that song was liked by user already
+      let checkExists = 0;
+      lastLikedSongArr.forEach(song => {
+        if(JSON.stringify(likedSong._id) == JSON.stringify(song._id)){
+          checkExists = 1;
+          return;
+        }
+      })
+      if(checkExists === 1){
+        return (user)
+      }
+
+      newLikedSongArr = [...lastLikedSongArr, likedSong]
+      await db.collection("Users").updateOne({_id: user._id}, {$set:{likedSongs:newLikedSongArr}})
+      return({...user, likedSongs: newLikedSongArr})
     }
   },
   //Custom resolver here
