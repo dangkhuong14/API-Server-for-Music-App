@@ -25,6 +25,7 @@ const typeDefs = gql`
   type Query {
     myPlayLists: [PlayList]
     searchSongByName(name: String!): [Song]
+    searchSongByTitle(title: String!): [Song]
   }
 
   type Mutation {
@@ -110,7 +111,9 @@ const resolvers = {
       if(!user) throw new Error("Please sign in to see your play list!")
       const playListArr = await db.collection("PlayLists").find({"author._id": user._id}).toArray();
       return playListArr;
-    }
+    },
+    searchSongByTitle: async (root, {title}, {db, user}) => await db.collection("Songs").find({title: title}).toArray()
+    
   },
   Mutation: {
     signUp: async (root, {input}, {db}) => {
