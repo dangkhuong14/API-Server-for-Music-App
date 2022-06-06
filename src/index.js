@@ -36,7 +36,7 @@ const typeDefs = gql`
     addSongToPlayList(songId: String!, playListId: String!): PlayList! #addSongToPlayList ~ update play list
     likeASong (songId: String!): User!
     addSong(input: addSongInput!): Song!
-    
+    addTitleToSong(titleToAdd: String!): Song! 
   }
 
   input signInInput {
@@ -55,7 +55,7 @@ const typeDefs = gql`
     name: String!
     author: String!
     URI: String!
-    title: String!
+    title: [String!]!
     imageURL: String
   }
 
@@ -84,7 +84,7 @@ const typeDefs = gql`
     author: String!
     URI: String!
     imageURL: String!
-    title: String!
+    title: [String!]!
   }
 
   type PlayList {
@@ -115,6 +115,9 @@ const resolvers = {
     
   },
   Mutation: {
+    addTitleToSong: async (root, {title}, {db, user}) =>{
+
+    }, 
     signUp: async (root, {input}, {db}) => {
       userEmail = await db.collection("Users").findOne({email: input.email});
       if (userEmail){
@@ -150,12 +153,18 @@ const resolvers = {
     },
 
     addSong: async (root, {input}, {db}) => {
+
+      song = await db.collection("Songs").findOne({name: input.name, author: input.author, URI: input.URI, imageURL:input.imageURL});
+      if (song){
+        console.log("Song was already added.");
+        return ({...song, title: [input.title]})
+      }
       const newSong = {
         name: input.name,
         author: input.author,
         imageURL: input.imageURL,
         URI: input.URI,
-        title: input.title
+        title: [input.title]
       }
       await db.collection("Songs").insertOne(newSong);
       // console.log(newSong);
