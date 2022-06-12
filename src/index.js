@@ -44,7 +44,7 @@ const typeDefs = gql`
     likeASong (songId: String!): User!
     addSong(input: addSongInput!): Song!
     addTitleToSong(titleToAdd: String!): Song! 
-
+    deleteSong(songId: String!): Song
   }
 
   input signInInput {
@@ -159,7 +159,7 @@ const resolvers = {
         user,
       });
     },
-// Chua hoan thien addSong mutation
+// Chi nhap vao 1 title, khong nhap mang cac title duoc
     addSong: async (root, {input}, {db, user}) => {
       //Check if user is admin
       if (_idToString(user)!= ADMIN_ID) 
@@ -186,6 +186,19 @@ const resolvers = {
       })
     },
     
+    deleteSong: async (root, {songId}, {db, user}) => {
+      //Check if user is admin
+      if (_idToString(user)!= ADMIN_ID) 
+      {
+        throw new Error("Only admin can add song to database")
+      }
+      //Check if song is existed, if not return null
+      songToDelete = await db.collection("Songs").findOne({_id: ObjectId(songId)})
+      if(songToDelete == null) return null;
+      await db.collection("Songs").deleteOne({_id: ObjectId(songId)});
+      return (songToDelete);
+    },
+
     createPlayList: async (root, {input}, {db, user}) => {
       if (!user) throw new Error("Please sign in to create your play list!")
 
