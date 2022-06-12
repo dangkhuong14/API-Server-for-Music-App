@@ -5,7 +5,14 @@ const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 dotenv.config();
 
-const {DB_URI, DB_NAME, JWT_Secret} = process.env;
+const {DB_URI, DB_NAME, JWT_Secret, ADMIN_ID} = process.env;
+
+const _idToString = ({_id}) => {
+  objId = JSON.stringify(_id);
+  objId = objId.slice(1); //Remove quote at the beginning of string
+  objId = objId.slice(0, 24);//Remove quote at the end of string
+  return objId;
+}
 
 const getToken = (user) => jwt.sign({id: user._id}, JWT_Secret, {expiresIn: '14 days'})
 
@@ -37,6 +44,7 @@ const typeDefs = gql`
     likeASong (songId: String!): User!
     addSong(input: addSongInput!): Song!
     addTitleToSong(titleToAdd: String!): Song! 
+
   }
 
   input signInInput {
@@ -55,7 +63,7 @@ const typeDefs = gql`
     name: String!
     author: String!
     URI: String!
-    title: [String!]!
+    title: String #Khong nhap vao mang title duoc
     imageURL: String
   }
 
@@ -151,13 +159,18 @@ const resolvers = {
         user,
       });
     },
-
-    addSong: async (root, {input}, {db}) => {
-
-      song = await db.collection("Songs").findOne({name: input.name, author: input.author, URI: input.URI, imageURL:input.imageURL});
+// Chua hoan thien addSong mutation
+    addSong: async (root, {input}, {db, user}) => {
+      //Check if user is admin
+      if (_idToString(user)!= ADMIN_ID) 
+      {
+        throw new Error("Only admin can add song to database")
+      }
+      //Check if song is already existed
+      song = await db.collection("Songs").findOne({name: input.name, author: input.author, URI: input.URI});
       if (song){
         console.log("Song was already added.");
-        return ({...song, title: [input.title]})
+        return ({...song})
       }
       const newSong = {
         name: input.name,
