@@ -43,8 +43,13 @@ const typeDefs = gql`
     addSongToPlayList(songId: String!, playListId: String!): PlayList! #addSongToPlayList ~ update play list
     likeASong (songId: String!): User!
     addSong(input: addSongInput!): Song!
-    addTitleToSong(titleToAdd: String!): Song! 
+    #Draft
+    addTitleToSong(input: songTitleInput!): Song
+    updateSongTitle(input: songTitleInput!): Song
+    deleteSongTitle(input: songTitleInput!): Song 
+    #Draft
     deleteSong(songId: String!): Song
+    updateSong(input: updateSongInput!): Song
   }
 
   input signInInput {
@@ -65,6 +70,21 @@ const typeDefs = gql`
     URI: String!
     title: String #Khong nhap vao mang title duoc
     imageURL: String
+  }
+
+  input updateSongInput{
+    songId: String!
+    name: String
+    author: String
+    URI: String
+    imageURL: String
+    title: String
+  }
+
+  #Draft
+  input songTitleInput {
+    songId: String!
+    title: String!
   }
 
   input createPlayListInput {
@@ -190,13 +210,58 @@ const resolvers = {
       //Check if user is admin
       if (_idToString(user)!= ADMIN_ID) 
       {
-        throw new Error("Only admin can add song to database")
+        throw new Error("Only admin can delete song in database")
       }
       //Check if song is existed, if not return null
       songToDelete = await db.collection("Songs").findOne({_id: ObjectId(songId)})
       if(songToDelete == null) return null;
       await db.collection("Songs").deleteOne({_id: ObjectId(songId)});
       return (songToDelete);
+    },
+
+
+
+/*  input updateSongInput{
+    songId: String!
+    name: String
+    author: String
+    URI: String
+    imageURL: String
+    title: String
+  }*/
+
+
+    updateSong: async (root, {input}, {db, user}) => {
+      //Check if user is admin
+      if (_idToString(user)!= ADMIN_ID) 
+      {
+        throw new Error("Only admin can update song in database")
+      }
+      //Find song to update
+      songToUpdate = await db.collection("Songs").findOne({_id: ObjectId(input.songId)})
+      //Check if song is existed if not return null
+      if(songToUpdate == null) return null
+      if(input.name){
+        songToUpdate = {...songToUpdate, name: input.name}
+      }
+      if(input.author){
+        songToUpdate = {...songToUpdate, author: input.author}
+      }
+      if(input.URI){
+        songToUpdate = {...songToUpdate, URI: input.URI}
+      }
+      if(input.imageURL){
+        songToUpdate = {...songToUpdate, imageURL: input.imageURL}
+      }
+      if(input.title){
+        songToUpdate = {...songToUpdate, title: [input.title]}
+      }
+      //Delete _id to update document in mongodb
+      delete songToUpdate._id
+      await db.collection("Songs").replaceOne({_id: ObjectId(input.songId)},{...songToUpdate})
+      //Add id to return to api
+      songToUpdate = {...songToUpdate, id: input.songId}
+      return songToUpdate;
     },
 
     createPlayList: async (root, {input}, {db, user}) => {
@@ -275,28 +340,31 @@ const resolvers = {
   //Custom resolver here
   User: {
     id: ({_id, id}) => {
+      if(id) return id;
       objId = JSON.stringify(_id);
       objId = objId.slice(1); //Remove quote at the beginning of string
       objId = objId.slice(0, 24);//Remove quote at the end of string
-      return (objId || id);
+      return (objId);
     }
   },
 
   Song: {
     id: ({_id, id}) => {
+      if(id) return id;
       objId = JSON.stringify(_id);
       objId = objId.slice(1); //Remove quote at the beginning of string
       objId = objId.slice(0, 24);//Remove quote at the end of string
-      return (objId || id);
+      return (objId);
     }
   },
 
   PlayList: {
     id: ({_id, id}) => {
+      if(id) return id;
       objId = JSON.stringify(_id);
       objId = objId.slice(1); //Remove quote at the beginning of string
       objId = objId.slice(0, 24);//Remove quote at the end of string
-      return (objId || id);
+      return (objId);
     }
   }
 
