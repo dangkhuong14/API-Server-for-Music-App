@@ -219,18 +219,6 @@ const resolvers = {
       return (songToDelete);
     },
 
-
-
-/*  input updateSongInput{
-    songId: String!
-    name: String
-    author: String
-    URI: String
-    imageURL: String
-    title: String
-  }*/
-
-
     updateSong: async (root, {input}, {db, user}) => {
       //Check if user is admin
       if (_idToString(user)!= ADMIN_ID) 
